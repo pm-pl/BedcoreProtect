@@ -19,24 +19,18 @@
 
 declare(strict_types=1);
 
-namespace matcracker\BedcoreProtect\listeners;
+namespace matcracker\BedcoreProtect\forms;
 
-use matcracker\BedcoreProtect\enums\Action;
-use pocketmine\block\VanillaBlocks;
-use pocketmine\event\block\LeavesDecayEvent;
+use dktapps\pmforms\element\Dropdown;
 
-final class WorldListener extends BedcoreListener
+class WorldDropDown extends Dropdown
 {
     /**
-     * @param LeavesDecayEvent $event
-     *
-     * @priority MONITOR
+     * @param string[] $options
      */
-    public function trackLeavesDecay(LeavesDecayEvent $event): void
+    public function setOptions(array $options): self
     {
-        $block = $event->getBlock();
-        if ($this->config->isEnabledWorld($block->getPosition()->getWorld()) && $this->config->getLeavesDecay()) {
-            $this->blocksQueries->addBlockLogByBlock($block, $block, VanillaBlocks::AIR(), Action::BREAK(), $block->getPosition());
-        }
+        $this->options = $options;
+        return $this;
     }
 }

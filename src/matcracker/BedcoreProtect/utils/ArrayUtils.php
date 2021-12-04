@@ -21,21 +21,40 @@ declare(strict_types=1);
 
 namespace matcracker\BedcoreProtect\utils;
 
-use pocketmine\Server;
-use pocketmine\World\World;
-use function array_map;
+use function array_values;
+use function count;
+use function current;
+use function next;
 
-final class WorldUtils
+final class ArrayUtils
 {
     private function __construct()
     {
         //NOOP
     }
 
-    public static function getWorldNames(): array
+    /**
+     * Check if all the given arrays are the same dimension.
+     */
+    public static function checkSameDimension(array ...$list): bool
     {
-        return array_map(static function (World $world): string {
-            return $world->getFolderName();
-        }, Server::getInstance()->getWorldManager()->getWorlds());
+        while ($current = current($list)) {
+            $next = next($list);
+            if ($next !== false && count($next) !== count($current)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Reset all the keys of each array to numeric values.
+     */
+    public static function resetKeys(array &...$list): void
+    {
+        foreach ($list as &$arr) {
+            $arr = array_values($arr);
+        }
     }
 }

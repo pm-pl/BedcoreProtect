@@ -23,29 +23,29 @@ namespace matcracker\BedcoreProtect\utils;
 
 use DateTime;
 use pocketmine\command\CommandSender;
-use pocketmine\level\Level;
-use pocketmine\nbt\BigEndianNBTStream;
+use pocketmine\nbt\BigEndianNbtSerializer;
 use pocketmine\nbt\tag\CompoundTag;
-use pocketmine\nbt\tag\NamedTag;
-use pocketmine\Player;
-use pocketmine\Server;
+use pocketmine\nbt\TreeRoot;
+use pocketmine\player\Player;
 use UnexpectedValueException;
 use function array_filter;
-use function array_map;
 use function base64_decode;
 use function base64_encode;
 use function count;
 use function is_string;
 use function json_decode;
+use function mb_strpos;
 use function microtime;
 use function preg_match;
 use function preg_replace;
 use function strlen;
+use function zlib_decode;
 
 final class Utils
 {
     private function __construct()
     {
+        //NOOP
     }
 
     /**
@@ -77,23 +77,13 @@ final class Utils
         $time = 0;
         $value = (int)$value;
 
-        switch ($dateType) {
-            case "w":
-                $time += $value * 7 * 24 * 60 * 60;
-                break;
-            case "d":
-                $time += $value * 24 * 60 * 60;
-                break;
-            case "h":
-                $time += $value * 60 * 60;
-                break;
-            case "m":
-                $time += $value * 60;
-                break;
-            case "s":
-                $time += $value;
-                break;
-        }
+        $time += match ($dateType) {
+            "w" => $value * 7 * 24 * 60 * 60,
+            "d" => $value * 24 * 60 * 60,
+            "h" => $value * 60 * 60,
+            "m" => $value * 60,
+            "s" => $value,
+        };
 
         return (int)$time;
     }
@@ -132,50 +122,32 @@ final class Utils
 
     /**
      * It serializes the CompoundTag to a Base64 string.
-     *
-     * @param CompoundTag $tag
-     *
-     * @return string
      */
     public static function serializeNBT(CompoundTag $tag): string
     {
-        $nbtSerializer = new BigEndianNBTStream();
-
-        $compressedData = $nbtSerializer->writeCompressed($tag);
-
-        if (!is_string($compressedData)) {
-            throw new UnexpectedValueException("Invalid compression of NBT data.");
-        }
-
         //Encoding to Base64 for more safe storing.
-        return base64_encode($compressedData);
+        return base64_encode((new BigEndianNbtSerializer())->write(new TreeRoot($tag)));
     }
 
     /**
-     * It de-serializes the CompoundTag to a Base64 string.
-     *
-     * @param string $encodedData
-     *
-     * @return CompoundTag
+     * It deserializes a Base64 string to a CompoundTag.
      */
     public static function deserializeNBT(string $encodedData): CompoundTag
     {
-        $nbtSerializer = new BigEndianNBTStream();
-
-        /** @var NamedTag $tag */
-        $tag = $nbtSerializer->readCompressed(base64_decode($encodedData));
-
-        if (!($tag instanceof CompoundTag)) {
-            throw new UnexpectedValueException("Value must return CompoundTag, got " . $tag->__toString());
+        $data = base64_decode($encodedData);
+        /*
+         * This is necessary to maintain the compatibility with previous
+         * plugin versions which use a compressed NBT.
+         */
+        if (self::isCompressedString($data)) {
+            $data = zlib_decode($data);
         }
 
-        return $tag;
+        return (new BigEndianNbtSerializer())->read($data)->mustGetCompoundTag();
     }
 
-    public static function getWorldNames(): array
+    private static function isCompressedString(string $str): bool
     {
-        return array_map(static function (Level $world): string {
-            return $world->getFolderName();
-        }, Server::getInstance()->getLevels());
+        return mb_strpos($str, "\x1f\x8b\x08") === 0;
     }
 }

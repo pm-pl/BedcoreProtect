@@ -24,13 +24,13 @@ namespace matcracker\BedcoreProtect\commands\subcommands;
 use dktapps\pmforms\BaseForm;
 use matcracker\BedcoreProtect\Main;
 use pocketmine\command\CommandSender;
-use pocketmine\Player;
+use pocketmine\player\Player;
 
 final class ReloadSubCommand extends SubCommand
 {
     public function onExecute(CommandSender $sender, array $args): void
     {
-        $this->getPlugin()->reloadPlugin();
+        $this->getOwningPlugin()->reloadPlugin();
         $sender->sendMessage(Main::MESSAGE_PREFIX . $this->getLang()->translateString("subcommand.reload.success"));
     }
 

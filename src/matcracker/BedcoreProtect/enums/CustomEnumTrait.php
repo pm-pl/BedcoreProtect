@@ -19,24 +19,31 @@
 
 declare(strict_types=1);
 
-namespace matcracker\BedcoreProtect\listeners;
+namespace matcracker\BedcoreProtect\enums;
 
-use matcracker\BedcoreProtect\enums\Action;
-use pocketmine\block\VanillaBlocks;
-use pocketmine\event\block\LeavesDecayEvent;
+use InvalidArgumentException;
+use pocketmine\utils\EnumTrait;
 
-final class WorldListener extends BedcoreListener
+trait CustomEnumTrait
 {
+    use EnumTrait;
+
     /**
-     * @param LeavesDecayEvent $event
+     * Returns the enum member matching the given name.
+     * This is overridden to change the return typehint.
      *
-     * @priority MONITOR
+     * @throws InvalidArgumentException if no member matches.
      */
-    public function trackLeavesDecay(LeavesDecayEvent $event): void
+    public static function fromString(string $name): self
     {
-        $block = $event->getBlock();
-        if ($this->config->isEnabledWorld($block->getPosition()->getWorld()) && $this->config->getLeavesDecay()) {
-            $this->blocksQueries->addBlockLogByBlock($block, $block, VanillaBlocks::AIR(), Action::BREAK(), $block->getPosition());
-        }
+        //phpstan doesn't support generic traits yet :(
+        /** @var self $result */
+        $result = self::_registryFromString($name);
+        return $result;
+    }
+
+    public function __toString(): string
+    {
+        return $this->enumName;
     }
 }

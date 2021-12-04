@@ -34,13 +34,11 @@ final class DatabaseManager
         __construct as DefQueriesConstr;
     }
 
-    protected Main $plugin;
     private PatchManager $patchManager;
     private QueryManager $queryManager;
 
-    public function __construct(Main $plugin)
+    public function __construct(protected Main $plugin)
     {
-        $this->plugin = $plugin;
     }
 
     /**
@@ -50,11 +48,16 @@ final class DatabaseManager
     public function connect(): bool
     {
         try {
-            $this->connector = libasynql::create($this->plugin, $this->plugin->getConfig()->get("database"), [
-                "sqlite" => "sqlite.sql",
-                "mysql" => "mysql.sql"
-            ]);
-        } catch (SqlError $error) {
+            $this->connector = libasynql::create(
+                $this->plugin,
+                $this->plugin->getConfig()->get("database"),
+                [
+                    "sqlite" => "sqlite.sql",
+                    "mysql" => "mysql.sql"
+                ],
+                $this->plugin->getParsedConfig()->getDebugMode()
+            );
+        } catch (SqlError) {
             $this->plugin->getLogger()->critical($this->plugin->getLanguage()->translateString("database.connection.fail"));
             return false;
         }
@@ -69,6 +72,11 @@ final class DatabaseManager
         $this->queryManager = new QueryManager($this->plugin, $this->connector);
 
         return true;
+    }
+
+    public function reloadConfiguration(): void
+    {
+        $this->connector->setLoggingQueries($this->plugin->getParsedConfig()->getDebugMode());
     }
 
     public function getQueryManager(): QueryManager

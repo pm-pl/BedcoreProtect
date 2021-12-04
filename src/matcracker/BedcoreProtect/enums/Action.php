@@ -23,6 +23,7 @@ namespace matcracker\BedcoreProtect\enums;
 
 use InvalidArgumentException;
 use matcracker\BedcoreProtect\Main;
+use pocketmine\utils\EnumTrait;
 use function array_key_exists;
 
 /**
@@ -43,7 +44,7 @@ use function array_key_exists;
  */
 final class Action
 {
-    use EnumTrait {
+    use CustomEnumTrait {
         register as Enum_register;
         __construct as Enum___construct;
     }
@@ -64,9 +65,6 @@ final class Action
     private static array $numericIdMap = [];
     /** @var self[][] */
     private static array $commandArgumentsMap;
-    private int $type;
-    private string $message;
-    private array $commandArguments;
 
     /**
      * Action constructor.
@@ -75,12 +73,14 @@ final class Action
      * @param string $message
      * @param string[] $commandArguments
      */
-    public function __construct(string $enumName, int $type, string $message, array $commandArguments)
+    public function __construct(
+        string         $enumName,
+        private int    $type,
+        private string $message,
+        private array  $commandArguments
+    )
     {
         $this->Enum___construct($enumName);
-        $this->type = $type;
-        $this->message = $message;
-        $this->commandArguments = $commandArguments;
     }
 
     public static function fromType(int $type): self
@@ -114,8 +114,8 @@ final class Action
             new self("spawn", 3, $lang->translateString("action.place"), ["all", "block"]),
             new self("despawn", 4, $lang->translateString("action.break"), ["all", "block"]),
             new self("kill", 5, $lang->translateString("action.kill"), ["all", "kill"]),
-            new self("add", 6, $lang->translateString("action.add"), ["all", "container, +container"]),
-            new self("remove", 7, $lang->translateString("action.remove"), ["all", "container, -container"]),
+            new self("add", 6, $lang->translateString("action.add"), ["all", "container", "+container"]),
+            new self("remove", 7, $lang->translateString("action.remove"), ["all", "container", "-container"]),
             new self("update", 255, "update", [])
         );
     }

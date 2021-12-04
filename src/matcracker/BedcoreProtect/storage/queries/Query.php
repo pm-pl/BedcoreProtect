@@ -22,12 +22,12 @@ declare(strict_types=1);
 namespace matcracker\BedcoreProtect\storage\queries;
 
 use Generator;
-use matcracker\BedcoreProtect\config\ConfigParser;
 use matcracker\BedcoreProtect\enums\Action;
 use matcracker\BedcoreProtect\Main;
+use matcracker\BedcoreProtect\utils\AwaitMutex;
 use pocketmine\command\CommandSender;
-use pocketmine\level\Level;
 use pocketmine\math\Vector3;
+use pocketmine\World\World;
 use poggit\libasynql\DataConnector;
 use function mb_strtolower;
 
@@ -37,44 +37,38 @@ abstract class Query
         __construct as DefQueriesConstr;
     }
 
-    protected Main $plugin;
-    protected ConfigParser $configParser;
+    private static AwaitMutex $mutex;
 
-    public function __construct(Main $plugin, DataConnector $connector)
+    public function __construct(protected Main $plugin, DataConnector $connector)
     {
         $this->DefQueriesConstr($connector);
-        $this->plugin = $plugin;
-        $this->configParser = $plugin->getParsedConfig();
+    }
+
+    final protected static function getMutex(): AwaitMutex
+    {
+        if (!isset(self::$mutex)) {
+            self::$mutex = new AwaitMutex();
+        }
+
+        return self::$mutex;
     }
 
     /**
      * @param CommandSender $sender
-     * @param Level $world
+     * @param World $world
      * @param bool $rollback
      * @param int[] $logIds
      * @return Generator
      */
-    abstract public function onRollback(CommandSender $sender, Level $world, bool $rollback, array $logIds): Generator;
-
-    /**
-     * @param bool $rollback
-     * @param int[] $logIds
-     */
-    final protected function updateRollbackStatus(bool $rollback, array $logIds): void
-    {
-        $this->connector->executeChange(QueriesConst::UPDATE_ROLLBACK_STATUS, [
-            "rollback" => $rollback,
-            "log_ids" => $logIds
-        ]);
-    }
+    abstract public function onRollback(CommandSender $sender, World $world, bool $rollback, array $logIds): Generator;
 
     final protected function addRawLog(string $uuid, Vector3 $position, string $worldName, Action $action, float $time): Generator
     {
         return $this->executeInsert(QueriesConst::ADD_HISTORY_LOG, [
             "uuid" => mb_strtolower($uuid),
-            "x" => $position->getFloorX(),
-            "y" => $position->getFloorY(),
-            "z" => $position->getFloorZ(),
+            "x" => $position->getX(),
+            "y" => $position->getY(),
+            "z" => $position->getZ(),
             "world_name" => $worldName,
             "action" => $action->getType(),
             "time" => $time

@@ -21,22 +21,17 @@ declare(strict_types=1);
 
 namespace matcracker\BedcoreProtect\utils;
 
-use pocketmine\block\Anvil;
 use pocketmine\block\Block;
-use pocketmine\block\BlockIds;
-use pocketmine\block\BrewingStand;
-use pocketmine\block\BurningFurnace;
 use pocketmine\block\Button;
-use pocketmine\block\Chest;
 use pocketmine\block\Door;
-use pocketmine\block\EnchantingTable;
 use pocketmine\block\FenceGate;
 use pocketmine\block\ItemFrame;
 use pocketmine\block\Lever;
+use pocketmine\block\tile\Container;
+use pocketmine\block\tile\Tile;
 use pocketmine\block\Trapdoor;
-use pocketmine\level\Position;
 use pocketmine\nbt\tag\CompoundTag;
-use pocketmine\tile\Tile;
+use pocketmine\World\Position;
 use function is_a;
 
 final class BlockUtils
@@ -78,19 +73,22 @@ final class BlockUtils
      */
     public static function hasInventory(Block $block): bool
     {
-        static $blockClasses = [
-            Chest::class, BurningFurnace::class,
-            EnchantingTable::class, Anvil::class,
-            BrewingStand::class
-        ];
+        return self::asTile($block->getPosition()) instanceof Container;
+    }
 
-        foreach ($blockClasses as $blockClass) {
-            if (is_a($block, $blockClass)) {
-                return true;
-            }
+    /**
+     * Returns a Tile instance of the given block if it exists.
+     *
+     * @param Position $position
+     * @return Tile|null
+     */
+    public static function asTile(Position $position): ?Tile
+    {
+        if ($position->isValid()) {
+            return $position->getWorld()->getTile($position->asVector3());
+        } else {
+            return null;
         }
-
-        return false;
     }
 
     /**
@@ -118,52 +116,6 @@ final class BlockUtils
      */
     public static function getCompoundTag(Block $block): ?CompoundTag
     {
-        if (($tile = self::asTile($block->asPosition())) !== null) {
-            return clone $tile->saveNBT();
-        }
-
-        return null;
-    }
-
-
-    /**
-     * Returns a Tile instance of the given block if it exists.
-     *
-     * @param Position $position
-     * @return Tile|null
-     */
-    public static function asTile(Position $position): ?Tile
-    {
-        if (($world = $position->getLevel()) === null) {
-            return null;
-        }
-
-        return $world->getTile($position->asVector3());
-    }
-
-    /**
-     * @param int $blockId
-     * @return string
-     */
-    public static function getTileName(int $blockId): string //TODO: Remove on API 4.0
-    {
-        static $array = [
-            BlockIds::STANDING_BANNER => Tile::BANNER,
-            BlockIds::WALL_BANNER => Tile::BANNER,
-            BlockIds::BED_BLOCK => Tile::BED,
-            BlockIds::BREWING_STAND_BLOCK => Tile::BREWING_STAND,
-            BlockIds::CHEST => Tile::CHEST,
-            BlockIds::TRAPPED_CHEST => Tile::CHEST,
-            BlockIds::ENCHANTING_TABLE => Tile::ENCHANT_TABLE,
-            BlockIds::ENDER_CHEST => Tile::ENDER_CHEST,
-            BlockIds::FLOWER_POT_BLOCK => Tile::FLOWER_POT,
-            BlockIds::FURNACE => Tile::FURNACE,
-            BlockIds::ITEM_FRAME_BLOCK => Tile::ITEM_FRAME,
-            BlockIds::SIGN_POST => Tile::SIGN,
-            BlockIds::WALL_SIGN => Tile::SIGN,
-            BlockIds::SKULL_BLOCK => Tile::SKULL
-        ];
-
-        return $array[$blockId] ?? "Unknown";
+        return self::asTile($block->getPosition())?->saveNBT();
     }
 }

@@ -56,8 +56,8 @@ Rollback or restore multiple players at once.
 
 ...and the list is still expanding!
 
-## Database Minimum Requirements
-If you are using **MySQL** as storage, the minimum required version must be >= **5.6.4**
+# Database Minimum Requirements
+In case of **MySQL** as storage, the minimum required version must be >= **5.6.4**
 
 # Commands
 You can access the following commands by using **/bedcoreprotect**, **/bcp**, **/core** or **/co**.
@@ -261,6 +261,13 @@ _Can be used to exclude a blocks/items._
 Examples:
 - `e=tnt` _(only excludes TNT)_
 ---
+
+# Donate
+You can contribute to the development and maintenance of BedcoreProtect through the following payment methods:
+- Bitcoin (BTC): `37BCe87gveKRNPzbcLLyAk2kLVqE53MSZc`
+- Ethereum (ETH): `0x6C5c009d5EC990dA2bCFb7A7aeDD369E21C78087`
+
+Your help can make a difference. Thank you.
 
 # FAQ
 - **I found a bug, where can I report it?**

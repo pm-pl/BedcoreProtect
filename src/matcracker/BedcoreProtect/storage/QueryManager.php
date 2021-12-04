@@ -34,13 +34,15 @@ use matcracker\BedcoreProtect\utils\MathUtils;
 use matcracker\BedcoreProtect\utils\Utils;
 use pocketmine\command\CommandSender;
 use pocketmine\math\AxisAlignedBB;
-use pocketmine\Player;
+use pocketmine\math\Vector3;
+use pocketmine\player\Player;
 use pocketmine\Server;
 use pocketmine\utils\TextFormat;
 use poggit\libasynql\DataConnector;
 use SOFe\AwaitGenerator\Await;
 use UnexpectedValueException;
 use function array_key_exists;
+use function array_merge;
 use function count;
 use function microtime;
 use function preg_match;
@@ -58,16 +60,14 @@ final class QueryManager
     /** @var UndoRollbackData[] */
     private static array $undoData = [];
 
-    private Main $plugin;
     private PluginQueries $pluginQueries;
     private BlocksQueries $blocksQueries;
     private EntitiesQueries $entitiesQueries;
     private InventoriesQueries $inventoriesQueries;
 
-    public function __construct(Main $plugin, DataConnector $connector)
+    public function __construct(private Main $plugin, DataConnector $connector)
     {
         $this->DefQueriesConstr($connector);
-        $this->plugin = $plugin;
 
         $this->pluginQueries = new PluginQueries($plugin, $connector);
         $this->entitiesQueries = new EntitiesQueries($plugin, $connector);
@@ -133,13 +133,13 @@ final class QueryManager
         }
 
         $worldName = $cmdData->getWorld();
-        $world = Server::getInstance()->getLevelByName($worldName);
+        $world = Server::getInstance()->getWorldManager()->getWorldByName($worldName);
         if ($world === null) {
             $sender->sendMessage(Main::MESSAGE_PREFIX . TextFormat::RED . $this->plugin->getLanguage()->translateString("rollback.error.world-not-exist", [$worldName]));
             return;
         }
 
-        $bb = $sender instanceof Player ? MathUtils::getRangedVector($sender->asVector3(), $cmdData->getRadius()) : null;
+        $bb = $sender instanceof Player ? MathUtils::getRangedVector($sender->getPosition(), $cmdData->getRadius()) : null;
 
         foreach (self::$activeRollbacks as $actSender => [$actBB, $actWorld]) {
             if ((($bb !== null && $actBB !== null && $actBB->intersectsWith($bb)) || $cmdData->isGlobalRadius()) && $worldName === $actWorld) {
@@ -155,12 +155,15 @@ final class QueryManager
             function () use ($sender, $senderName, $cmdData, $world, $worldName, $bb, $rollback, $time, $startTime): Generator {
                 self::$activeRollbacks[$senderName] = [$bb, $worldName];
                 $executed = false;
+                /** @var array<int, Vector3> $blockUpdatesPos */
+                $blockUpdatesPos = [];
                 $blocks = $chunks = $items = $entities = 0;
 
                 while (count($logIds = yield $this->getRollbackLogIds($cmdData, $bb, $time, $rollback, self::ROLLBACK_ROWS_LIMIT)) !== 0) {
-                    [$tmpBlocks, $tmpChunks] = yield $this->getBlocksQueries()->onRollback($sender, $world, $rollback, $logIds);
+                    [$tmpBlocks, $tmpChunks, $tmpBlockUpdPos] = yield $this->getBlocksQueries()->onRollback($sender, $world, $rollback, $logIds);
                     $blocks += $tmpBlocks;
                     $chunks += $tmpChunks;
+                    $blockUpdatesPos = array_merge($blockUpdatesPos, $tmpBlockUpdPos);
 
                     $items += yield $this->getInventoriesQueries()->onRollback($sender, $world, $rollback, $logIds);
                     $entities += yield $this->getEntitiesQueries()->onRollback($sender, $world, $rollback, $logIds);
@@ -171,6 +174,10 @@ final class QueryManager
                     ]);
 
                     $executed = true;
+                }
+
+                foreach ($blockUpdatesPos as $blockUpdatePos) {
+                    $world->notifyNeighbourBlockUpdate($blockUpdatePos);
                 }
 
                 if ($executed) {
@@ -235,9 +242,13 @@ final class QueryManager
             $sender->sendMessage(TextFormat::WHITE . "- " . $this->plugin->getLanguage()->translateString("rollback.radius", [$cmdData->getRadius() ?? $this->plugin->getParsedConfig()->getMaxRadius()]));
         }
 
-        if ($blocks > 0) {
-            $sender->sendMessage(TextFormat::WHITE . "- " . $this->plugin->getLanguage()->translateString("rollback.blocks", [$blocks]));
-            $sender->sendMessage(TextFormat::WHITE . "- " . $this->plugin->getLanguage()->translateString("rollback.modified-chunks", [$chunks]));
+        if ($blocks + $items + $entities === 0) {
+            $sender->sendMessage(TextFormat::WHITE . "- " . TextFormat::DARK_AQUA . $this->plugin->getLanguage()->translateString("rollback.no-changes"));
+        } else {
+            if ($blocks > 0) {
+                $sender->sendMessage(TextFormat::WHITE . "- " . $this->plugin->getLanguage()->translateString("rollback.blocks", [$blocks]));
+                $sender->sendMessage(TextFormat::WHITE . "- " . $this->plugin->getLanguage()->translateString("rollback.modified-chunks", [$chunks]));
+            }
 
             if ($items > 0) {
                 $sender->sendMessage(TextFormat::WHITE . "- " . $this->plugin->getLanguage()->translateString("rollback.items", [$items]));
@@ -246,9 +257,6 @@ final class QueryManager
             if ($entities > 0) {
                 $sender->sendMessage(TextFormat::WHITE . "- " . $this->plugin->getLanguage()->translateString("rollback.entities", [$entities]));
             }
-
-        } else {
-            $sender->sendMessage(TextFormat::WHITE . "- " . TextFormat::DARK_AQUA . $this->plugin->getLanguage()->translateString("rollback.no-changes"));
         }
 
         $diff = microtime(true) - $startTime;

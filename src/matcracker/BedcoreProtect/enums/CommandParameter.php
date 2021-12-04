@@ -26,8 +26,10 @@ use dktapps\pmforms\element\Dropdown;
 use dktapps\pmforms\element\Input;
 use dktapps\pmforms\element\Slider;
 use InvalidArgumentException;
+use matcracker\BedcoreProtect\forms\WorldDropDown;
 use matcracker\BedcoreProtect\Main;
-use matcracker\BedcoreProtect\utils\Utils;
+use matcracker\BedcoreProtect\utils\WorldUtils;
+use pocketmine\utils\EnumTrait;
 use function array_map;
 use function count;
 use function in_array;
@@ -48,30 +50,32 @@ use function mb_strtolower;
  */
 final class CommandParameter
 {
-    use EnumTrait {
+    use CustomEnumTrait {
         register as Enum_register;
         __construct as Enum___construct;
         fromString as Enum_fromString;
     }
 
-    /** @var string[] */
-    private array $aliases;
-    private CustomFormElement $formElement;
-    private string $example;
-
-    public function __construct(string $enumName, array $aliases, CustomFormElement $formElement, string $example)
+    /**
+     * @param string $enumName
+     * @param string[] $aliases
+     * @param CustomFormElement $formElement
+     * @param string $example
+     */
+    public function __construct(
+        string                    $enumName,
+        private array             $aliases,
+        private CustomFormElement $formElement,
+        private string            $example)
     {
         $this->Enum___construct($enumName);
-        $this->aliases = $aliases;
-        $this->formElement = $formElement;
-        $this->example = $example;
     }
 
     public static function fromString(string $name): ?CommandParameter
     {
         try {
             return self::Enum_fromString($name);
-        } catch (InvalidArgumentException $e) {
+        } catch (InvalidArgumentException) {
             foreach (self::getAll() as $enum) {
                 if (in_array(mb_strtolower($name), $enum->getAliases())) {
                     return $enum;
@@ -130,10 +134,10 @@ final class CommandParameter
             new self(
                 "world",
                 ["w"],
-                new Dropdown(
+                new WorldDropDown(
                     "world",
                     $plugin->getLanguage()->translateString("form.params.world"),
-                    Utils::getWorldNames()
+                    WorldUtils::getWorldNames()
                 ),
                 "[w=my_world], [w=faction]"
             ),
@@ -166,9 +170,9 @@ final class CommandParameter
                 new Input(
                     "inclusions",
                     $plugin->getLanguage()->translateString("form.params.include"),
-                    "stone,dirt,2:0"
+                    "stone,dirt,grass,..."
                 ),
-                "[b=stone], [b=1,5,stained_glass:8]"
+                "[b=stone], [b=red_wool,dirt,tnt,...]"
             ),
             new self(
                 "exclude",
@@ -176,9 +180,9 @@ final class CommandParameter
                 new Input(
                     "exclusions",
                     $plugin->getLanguage()->translateString("form.params.exclude"),
-                    "stone,dirt,2:0"
+                    "stone,dirt,grass,..."
                 ),
-                "[b=stone], [b=1,5,stained_glass:8]"
+                "[e=stone], [e=red_wool,dirt,tnt,...]"
             )
         );
     }
